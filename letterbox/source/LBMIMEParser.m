@@ -157,6 +157,16 @@ typedef enum {
     }
 }
 
+- (NSData*)decodedData {
+    if ([self.contentTransferEncoding isEqualToString:@"base64"]) {
+        NSString* base64_data = [content stringByReplacingOccurrencesOfString:@"\n" withString:@""];
+        return LBMIMEDataByDecodingBase64String(base64_data);
+    }
+    else {
+        return nil;
+    }
+}
+
 @end
 
 
@@ -186,10 +196,10 @@ typedef enum {
                     self.boundary   = [self boundaryFromContentType:self.contentType];
                     
                     //debug( @"properties: %@", self.properties );
-                    //debug( @"boundry: %@", boundry );
+                    //debug( @"boundary: %@", boundary );
                     [lines removeAllObjects];
                     
-                    if ([self.contentType hasPrefix:@"multipart/alternative"]) {
+                    if ([[self.contentType lowercaseString] hasPrefix:@"multipart/"]) {
                         if (boundary != nil) {
                             state = LBMIMEParserStateReadingContent;
                         }
@@ -226,23 +236,12 @@ typedef enum {
                 break;
                 
             case LBMIMEParserStateReadingContent:
-                
                 if ([string hasPrefix:[NSString stringWithFormat:@"--%@", boundary]]) {
                     [contentLines addObjectsFromArray:lines];
                     [lines removeAllObjects];
                     state = LBMIMEParserStateReadingParts;
                 }
                 else {
-                    if ([lines count] > 0) {
-                        
-                        NSString *previousLine = [lines objectAtIndex:[lines count] - 1];
-                        if ([previousLine hasSuffix:@"="]) {
-                            string = [NSString stringWithFormat:@"%@%@", [previousLine substringToIndex:[previousLine length] - 1], string];
-                            [lines removeLastObject];
-                        }
-                    }
-                    
-                    //NSLog( @"adding content: %@", string );
                     [lines addObject:string];
                 }
                 break;
@@ -250,6 +249,7 @@ typedef enum {
             case LBMIMEParserStateReadingParts:
                 
                 if ([string hasPrefix: [NSString stringWithFormat:@"--%@", boundary]]) {
+                    [lines addObject:@""];
                     NSString *partSourceText = [lines componentsJoinedByString: @"\n"];
                     
                     // guynote: we've got all the text for a subpart here - we can do this in a block async. we'd need to make sure the resulting part was added to the subparts array in the correct position to preserve the "faithfullness" of alternative type ordering.
@@ -294,7 +294,6 @@ typedef enum {
     
     [content release];
     content = [decodedNewContent copy];
-    //NSLog( @"content: %@", content );
 }
 
 - (NSDictionary*)propertiesFromLines:(NSArray*)lines {
@@ -340,7 +339,8 @@ typedef enum {
 }
 
 - (NSString*)boundaryFromContentType:(NSString*)contentTypeString {
-    return [self valueForAttribute:@"boundary" inPropertyString:contentTypeString];
+    NSString *rough_value = [self valueForAttribute:@"boundary" inPropertyString:contentTypeString];
+    return [rough_value stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@" "]];
 }
 
 @end
@@ -349,7 +349,7 @@ typedef enum {
 @implementation LBMIMEMultipartMessage
 
 - (BOOL)isMultipart {
-    return [self.contentType hasPrefix:@"multipart/"];
+    return [[self.contentType lowercaseString] hasPrefix:@"multipart/"];
 }
 
 - (NSArray*) types {
@@ -393,7 +393,6 @@ typedef enum {
     }
     
     if ([self isMultipart]) {
-        debug(@"yaymuuuuu");
         for (LBMIMEPart *part in self.subparts) {
             if ([part.contentType hasPrefix:mimeType]) {
                 return part;
@@ -446,7 +445,7 @@ NSString *LBMIMEStringByDecodingStringFromEncodingWithCharSet(NSString *inputStr
     NSString *decodedString = [NSString stringWithString:inputString];
     
     if ([transferEncoding isEqual: @"quoted-printable"]) {
-        //decodedString = [decodedString stringByReplacingOccurrencesOfString:@"=\r\n" withString:@""];
+        decodedString = [decodedString stringByReplacingOccurrencesOfString:@"=\n" withString:@""];
         decodedString = [decodedString stringByReplacingOccurrencesOfString:@"=" withString:@"%"];
         
         if ( [characterSet isCaseInsensitiveLike:@"ISO-8859-1"] ) {

@@ -38,23 +38,79 @@
     GHAssertTrue([[[[mm subparts] objectAtIndex:0] contentType] hasPrefix:@"multipart/alternative"], @"the type of the first subpart");
     GHAssertTrue([[[[mm subparts] objectAtIndex:1] contentType] hasPrefix:@"text/plain"], @"the type of the second subpart");
     
-    for (LBMIMEPart *part in [mm subparts]) {
-        NSLog(@"sub part: %@", part.contentType);
-    }
+    LBMIMEPart *nosuchpart = [mm partForType: @"image/jpeg"];
+    GHAssertNil(nosuchpart, @"no such part");
     
-    LBMIMEPart *part = [mm availablePartForTypeFromArray:[NSArray arrayWithObjects: @"text/plain", @"text/html", nil]];
+    LBMIMEPart *altpart = [mm partForType: @"multipart/alternative"];
+    GHAssertNotNil(altpart, @"the alternative part");
+    GHAssertTrue([[altpart subparts] count] == 2, @"two sub-parts in altpart");
     
-    GHAssertNotNil(part, @"the part");
+    LBMIMEPart *subpart_text = [[altpart subparts] objectAtIndex:0];
+    GHAssertTrue([[subpart_text contentType] hasPrefix:@"text/plain"], @"the type of the text alternative part");
+    GHAssertTrue([[subpart_text content] hasPrefix:@"\nOn Jan 17, 2010, at 9:13 PM, Joseph"], @"subpart_text begins with the right text");
+    GHAssertTrue([[subpart_text content] hasSuffix:@"Regards,\nBoone\n"], @"subpart_text ends with the right text");
+    
+    LBMIMEPart *subpart_html = [[altpart subparts] objectAtIndex:1];
+    GHAssertTrue([[subpart_html contentType] hasPrefix:@"text/html"], @"the type of the html alternative part");
+    GHAssertTrue([[subpart_html content] hasPrefix:@"<html><head></head><body style"], @"subpart_html starts with the right text");
+    GHAssertTrue([[subpart_html content] rangeOfString:@"<blockquote type=\"cite\">Also, let's learn some IMAP."].location != NSNotFound, @"subpart_html contains the right substring");
+    GHAssertTrue([[subpart_html content] hasSuffix:@"<br>Boone</div></body></html>"], @"subpart_html ends with the right text");
+    
+    LBMIMEPart *textpart = [mm availablePartForTypeFromArray:[NSArray arrayWithObjects: @"text/plain", @"text/html", nil]];
+    
+    GHAssertNotNil(textpart, @"the part");
     
     
-    GHAssertEqualStrings([part content], @"Hello sir, this is the content, and honestly it isn't much.  Sorry.\n\nLinebreak!", @"Checking the content");
+    GHAssertEqualStrings([textpart content], @"Hello sir, this is the content, and honestly it isn't much.  Sorry.\n\nLinebreak!", @"Checking the content");
     
-    part = [mm availablePartForTypeFromArray:[NSArray arrayWithObjects: @"multipart/alternative", nil]];
-    
-    
-    GHAssertNotNil(part, @"the multipart part");
+    textpart = [mm availablePartForTypeFromArray:[NSArray arrayWithObjects: @"multipart/alternative", nil]];
     
     
+    GHAssertNotNil(textpart, @"the multipart part");
+    
+    
+}
+
+- (void) testBoundaryWarts {
+    NSString *source = (@"From nobody Fri Apr  2 23:31:22 2010\n"
+                        "Content-Type: MULTIPART/MIXED; boundary=ZZZZ \n"  // uppercase type, whitespace at end of boundary
+                        "\n"
+                        "--ZZZZ\n"
+                        "Content-Type: text/plain; charset=\"us-ascii\"\n"
+                        "Content-Transfer-Encoding: 7bit\n"
+                        "\n"
+                        "Hello world!\n"
+                        "--ZZZZ--");
+    LBMIMEMultipartMessage *message = [[[LBMIMEMultipartMessage alloc] initWithString:source] autorelease];
+    
+    GHAssertTrue([message isMultipart], @"message is multi-part");
+    GHAssertTrue([[message subparts] count] == 1, @"one message part");
+    LBMIMEMultipartMessage *textpart = [[message subparts] objectAtIndex:0];
+    GHAssertTrue([[textpart contentType] hasPrefix:@"text/plain"], @"proper content-type for part");
+    GHAssertTrue([[textpart content] isEqualToString:@"Hello world!"], @"proper content for text part");
+}
+
+- (void) testBase64 {
+    NSString *source = (@"From nobody Fri Apr  2 23:31:22 2010\n"
+                        "Content-Type: MULTIPART/MIXED; boundary=ZZZZ \n"  // uppercase type, whitespace at end of boundary
+                        "\n"
+                        "--ZZZZ\n"
+                        "Content-Type: somerandom/mimetype\n"
+                        "MIME-Version: 1.0\n"
+                        "Content-Transfer-Encoding: base64\n"
+                        "\n"
+                        "U09NRSBia\n"
+                        "W5hcnkgRE\n"
+                        "FUQQ==\n"
+                        "--ZZZZ--");
+    LBMIMEMultipartMessage *message = [[[LBMIMEMultipartMessage alloc] initWithString:source] autorelease];
+    
+    GHAssertTrue([message isMultipart], @"message is multi-part");
+    GHAssertTrue([[message subparts] count] == 1, @"one message part");
+    LBMIMEMultipartMessage *binpart = [[message subparts] objectAtIndex:0];
+    GHAssertTrue([[binpart contentType] hasPrefix:@"somerandom/mimetype"], @"proper content-type for part");
+    debug(@"content: %@", [binpart content]);
+    GHAssertTrue([[binpart decodedData] isEqualToData:[@"SOME binary DATA" dataUsingEncoding:NSASCIIStringEncoding]], @"proper content for part");
 }
 
 @end
