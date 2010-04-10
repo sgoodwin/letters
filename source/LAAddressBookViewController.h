@@ -10,14 +10,16 @@
 #import <AddressBook/ABPeoplePickerView.h>
 
 // A generic object to return the chosen name/email so that it can be tokenized later.
-@interface LAAddressBookEntry : NSObject{
+@interface LAAddressEntryToken : NSObject{
 	NSString *name;
 	NSString *email;
 }
 @property(nonatomic, retain) NSString *name;
 @property(nonatomic, retain) NSString *email;
 
--(id)initWithName:(NSString*)aname andEntry:(NSString*)anemail;
++ (LAAddressEntryToken*)entryTokenFromEditingString:(NSString*)string;
+-(id)initWithName:(NSString*)aname andEmail:(NSString*)anemail;
+- (NSString*)editingString;
 @end
 
 // The actual AddressBook selection controller. Implement the delegate protocol to get the info back.
@@ -32,16 +34,16 @@
 @property(nonatomic, assign) IBOutlet id<LAAddressBookViewDelegate, NSObject> delegate;
 
 + (LAAddressBookViewController*)newAddressBookViewControllerWithDelegate:(id<LAAddressBookViewDelegate, NSObject>)aDelegate;
-- (LAAddressBookEntry *)selectedEntry;
+- (LAAddressEntryToken *)selectedEntry;
 - (IBAction)to:(id)sender;
 - (IBAction)cc:(id)sender;
 - (IBAction)bcc:(id)sender;
 @end
 
 @protocol LAAddressBookViewDelegate
-- (void)addToAddress:(LAAddressBookEntry *)address;
+- (void)addToAddress:(LAAddressEntryToken *)address;
 
 @optional
-- (void)addCcAddress:(LAAddressBookEntry*)address;
-- (void)addBccAddress:(LAAddressBookEntry*)address;
+- (void)addCcAddress:(LAAddressEntryToken*)address;
+- (void)addBccAddress:(LAAddressEntryToken*)address;
 @end

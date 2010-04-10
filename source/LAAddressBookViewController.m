@@ -9,14 +9,33 @@
 #import "LAAddressBookViewController.h"
 #import <AddressBook/AddressBook.h>
 
-@implementation LAAddressBookEntry
+@implementation LAAddressEntryToken
 @synthesize name, email;
--(id)initWithName:(NSString*)aname andEntry:(NSString*)anemail{
-	if(self = [super init]){
+
++ (LAAddressEntryToken*)entryTokenFromEditingString:(NSString*)string{
+	NSRange aRange = [string rangeOfString:@"<"];
+	if(aRange.location == NSNotFound){
+		return nil;
+	}
+	
+	NSString *name = [string substringToIndex:aRange.location];
+	
+	NSCharacterSet *bracketSet = [NSCharacterSet characterSetWithCharactersInString:@"<>"];
+	NSString *email = [[string substringFromIndex:aRange.location] stringByTrimmingCharactersInSet:bracketSet];
+	return [[[self alloc] initWithName:name andEmail:email] autorelease];
+}
+
+
+-(id)initWithName:(NSString*)aname andEmail:(NSString*)anemail{
+	if((self = [super init])){
 		self.name = aname;
 		self.email = anemail;
 	}
 	return self;
+}
+
+- (NSString*)editingString{
+	return [NSString stringWithFormat:@"%@ <%@>", self.name, self.email];
 }
 @end
 
@@ -38,7 +57,7 @@
 	[self.peoplePicker setNameDoubleAction:@selector(to:)];
 }
 
-- (LAAddressBookEntry *)selectedEntry{
+- (LAAddressEntryToken *)selectedEntry{
 	NSString *email = nil;
 	ABPerson *person = nil;
 	
@@ -54,10 +73,9 @@
 	}
 	NSString *personString = [[NSString alloc] initWithFormat:@"%@ %@", [person valueForProperty:kABFirstNameProperty], [person valueForProperty:kABLastNameProperty], nil];
 	
-	LAAddressBookEntry *entry = [[LAAddressBookEntry alloc] initWithName:personString andEntry:email];
+	LAAddressEntryToken *entry = [[[LAAddressEntryToken alloc] initWithName:personString andEmail:email] autorelease];
 	[personString release];
 	
-	NSLog(@"Sending entry: %@", entry);
 	return entry;
 }
 

@@ -8,6 +8,7 @@
 
 #import <Cocoa/Cocoa.h>
 #import "LAAddressBookViewController.h"
+#import "LAAddressEntryTokenSource.h"
 
 @interface LADocument : NSDocument <LAAddressBookViewDelegate>{
     
@@ -15,6 +16,9 @@
     
     IBOutlet NSProgressIndicator *progressIndicator;
 	LAAddressBookViewController *addressBookVC;
+	LAAddressEntryTokenSource *tokenSource;
+	
+	NSTokenField *toField;
 }
 
 @property (retain) NSString *toList;
@@ -26,6 +30,10 @@
 
 @property (retain) LAAddressBookViewController *addressBookVC;
 
+@property (retain) LAAddressEntryTokenSource *tokenSource;
+
+@property (retain) IBOutlet NSTokenField *toField;
+
 - (IBAction)openAddressBookPicker:(id)sender;
-- (void)addToAddress:(LAAddressBookEntry *)address;
+- (void)addToAddress:(LAAddressEntryToken *)address;
 @end

@@ -15,7 +15,7 @@
 @synthesize fromList;
 @synthesize subject;
 @synthesize message;
-@synthesize addressBookVC;
+@synthesize addressBookVC, tokenSource, toField;
 
 - (id)init {
     self = [super init];
@@ -50,6 +50,8 @@
 - (void)windowControllerDidLoadNib:(NSWindowController *) aController {
     [super windowControllerDidLoadNib:aController];
     // Add any code here that needs to be executed once the windowController has loaded the document's window.
+	self.tokenSource = [[LAAddressEntryTokenSource alloc] init];
+	self.toField.delegate = self.tokenSource;
 }
 
 - (NSData *)dataOfType:(NSString *)typeName error:(NSError **)outError {
@@ -148,7 +150,7 @@
 	[[self.addressBookVC window] orderFront:self];
 }
 
-- (void)addToAddress:(LAAddressBookEntry *)address{
+- (void)addToAddress:(LAAddressEntryToken *)address{
 	[self willChangeValueForKey:@"toList"];
 	if(!!self.toList){
 		self.toList = [self.toList stringByAppendingFormat:@", %@", [address email]];
