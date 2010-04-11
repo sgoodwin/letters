@@ -27,16 +27,19 @@
 - (NSArray *)tokenField:(NSTokenField *)tokenField completionsForSubstring:(NSString *)substring indexOfToken:(NSInteger)tokenIndex indexOfSelectedItem:(NSInteger *)selectedIndex{
 	ABAddressBook *book = [ABAddressBook sharedAddressBook];
 	ABSearchElement *search = [ABPerson searchElementForProperty:kABFirstNameProperty label:nil key:nil value:substring comparison:kABPrefixMatchCaseInsensitive];
-	NSArray *matchingEntries = [book recordsMatchingSearchElement:search];
-	NSArray *results = [self tokenArrayFromPeople:matchingEntries withMatchField:LAAddressEntryFirstName];
+	NSArray *firstNameEntries = [book recordsMatchingSearchElement:search];
+	NSArray *results = [self tokenArrayFromPeople:firstNameEntries withMatchField:LAAddressEntryFirstName];
 	
 	search = [ABPerson searchElementForProperty:kABLastNameProperty label:nil key:nil value:substring comparison:kABPrefixMatchCaseInsensitive];
-	matchingEntries  = [book recordsMatchingSearchElement:search];
-	results = [results arrayByAddingObjectsFromArray:[self tokenArrayFromPeople:matchingEntries withMatchField:LAAddressEntryLastName]];
+	NSMutableArray *lastNameEntries  = [[book recordsMatchingSearchElement:search] mutableCopy];
+	[lastNameEntries removeObjectsInArray:firstNameEntries];
+	results = [results arrayByAddingObjectsFromArray:[self tokenArrayFromPeople:lastNameEntries withMatchField:LAAddressEntryLastName]];
 	
 	search = [ABPerson searchElementForProperty:kABEmailProperty label:nil key:nil value:substring comparison:kABPrefixMatchCaseInsensitive];
-	matchingEntries  = [book recordsMatchingSearchElement:search];
-	results = [results arrayByAddingObjectsFromArray:[self tokenArrayFromPeople:matchingEntries withMatchField:LAAddressEntryEmail]];
+	NSMutableArray *emailEntries = [[book recordsMatchingSearchElement:search] mutableCopy];
+	[emailEntries removeObjectsInArray:firstNameEntries];
+	[emailEntries removeObjectsInArray:lastNameEntries];
+	results = [results arrayByAddingObjectsFromArray:[self tokenArrayFromPeople:emailEntries withMatchField:LAAddressEntryEmail]];
 	
 	return results;
 }
