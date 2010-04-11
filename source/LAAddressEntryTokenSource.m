@@ -10,7 +10,63 @@
 #import "LAAddressBookViewController.h"
 #import <AddressBook/AddressBook.h>
 
+@interface LAAddressEntryTokenSource (PrivateBits)
++ (LAAddressEntryToken*)handleParenthesisVersion:(NSString*)string;
++ (LAAddressEntryToken*)handleBracketVersion:(NSString*)string;
+@end
+
 @implementation LAAddressEntryTokenSource
+
++ (LAAddressEntryToken*)entryTokenFromEditingString:(NSString*)string{
+	if([string rangeOfString:@"<"].location != NSNotFound && [string rangeOfString:@">"].location != NSNotFound){
+		return [self handleParenthesisVersion:string];
+	}
+	if([string rangeOfString:@"("].location != NSNotFound && [string rangeOfString:@")"].location != NSNotFound){
+		return [self handleParenthesisVersion:string];
+	}
+	return nil;
+}
+
++ (LAAddressEntryToken*)handleParenthesisVersion:(NSString*)string{
+	NSRange aRange = [string rangeOfString:@"("];
+	NSString *email = [string substringToIndex:aRange.location];
+	
+	NSCharacterSet *parenSet = [NSCharacterSet characterSetWithCharactersInString:@"()"];
+	NSString *name = [[string substringFromIndex:aRange.location] stringByTrimmingCharactersInSet:parenSet];
+	NSArray *names = [name componentsSeparatedByString:@" "];
+	NSString *firstName = [names objectAtIndex:0];
+	NSString *lastName = nil;
+	if([names count] > 1)
+		lastName = [names objectAtIndex:1];
+	
+	LAAddressEntryToken *token = [[LAAddressEntryToken alloc] init];
+	token.email = email;
+	token.firstName = firstName;
+	if(!!lastName)
+		token.lastName = lastName;
+	return token;
+}
+	
++ (LAAddressEntryToken*)handleBracketVersion:(NSString*)string{	
+	NSRange aRange = [string rangeOfString:@"<"];
+	NSString *name = [string substringToIndex:aRange.location];
+	NSArray *names = [name componentsSeparatedByString:@" "];
+	NSString *firstName = [names objectAtIndex:0];
+	NSString *lastName = nil;
+	if([names count] > 1)
+		lastName = [names objectAtIndex:1];
+	
+	NSCharacterSet *bracketSet = [NSCharacterSet characterSetWithCharactersInString:@"<>"];
+	NSString *email = [[string substringFromIndex:aRange.location] stringByTrimmingCharactersInSet:bracketSet];
+	
+	LAAddressEntryToken *token = [[LAAddressEntryToken alloc] init];
+	token.email = email;
+	token.firstName = firstName;
+	if(!!lastName)
+		token.lastName = lastName;
+	return token;
+}
+
 
 - (NSString *)tokenField:(NSTokenField *)tokenField displayStringForRepresentedObject:(id)representedObject{
 	if([representedObject respondsToSelector:@selector(firstName)])
@@ -51,7 +107,7 @@
 }
 
 - (id)tokenField:(NSTokenField *)tokenField representedObjectForEditingString:(NSString *)editingString{
-	return [LAAddressEntryToken entryTokenFromEditingString:editingString];
+	return [LAAddressEntryTokenSource entryTokenFromEditingString:editingString];
 }
 
 - (NSArray *)tokenField:(NSTokenField *)tokenField shouldAddObjects:(NSArray *)tokens atIndex:(NSUInteger)index{

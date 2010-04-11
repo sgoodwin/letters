@@ -12,5 +12,7 @@
 @interface LAAddressEntryTokenSource : NSObject <NSTokenFieldDelegate>{
 
 }
++ (LAAddressEntryToken*)entryTokenFromEditingString:(NSString*)string;
+
 - (NSArray *)tokenArrayFromPeople:(NSArray*)people withMatchField:(LAAddressEntryMatchField)field;
 @end
