@@ -29,17 +29,14 @@
 	ABSearchElement *search = [ABPerson searchElementForProperty:kABFirstNameProperty label:nil key:nil value:substring comparison:kABPrefixMatchCaseInsensitive];
 	NSArray *matchingEntries = [book recordsMatchingSearchElement:search];
 	NSArray *results = [self tokenArrayFromPeople:matchingEntries withMatchField:LAAddressEntryFirstName];
-	NSLog(@"first name matches: %@", results);
 	
 	search = [ABPerson searchElementForProperty:kABLastNameProperty label:nil key:nil value:substring comparison:kABPrefixMatchCaseInsensitive];
 	matchingEntries  = [book recordsMatchingSearchElement:search];
 	results = [results arrayByAddingObjectsFromArray:[self tokenArrayFromPeople:matchingEntries withMatchField:LAAddressEntryLastName]];
-	NSLog(@"last name matches: %@", results);
 	
 	search = [ABPerson searchElementForProperty:kABEmailProperty label:nil key:nil value:substring comparison:kABPrefixMatchCaseInsensitive];
 	matchingEntries  = [book recordsMatchingSearchElement:search];
 	results = [results arrayByAddingObjectsFromArray:[self tokenArrayFromPeople:matchingEntries withMatchField:LAAddressEntryEmail]];
-	NSLog(@"email matches: %@", results);
 	
 	return results;
 }
