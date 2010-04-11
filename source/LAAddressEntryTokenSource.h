@@ -7,10 +7,10 @@
 //
 
 #import <Cocoa/Cocoa.h>
-
+#import "LAAddressEntryToken.h"
 
 @interface LAAddressEntryTokenSource : NSObject <NSTokenFieldDelegate>{
 
 }
-- (NSArray *)tokenArrayFromPeople:(NSArray*)people;
+- (NSArray *)tokenArrayFromPeople:(NSArray*)people withMatchField:(LAAddressEntryMatchField)field;
 @end

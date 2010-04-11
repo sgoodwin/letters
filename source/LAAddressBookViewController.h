@@ -8,19 +8,7 @@
 
 #import <Cocoa/Cocoa.h>
 #import <AddressBook/ABPeoplePickerView.h>
-
-// A generic object to return the chosen name/email so that it can be tokenized later.
-@interface LAAddressEntryToken : NSObject{
-	NSString *name;
-	NSString *email;
-}
-@property(nonatomic, retain) NSString *name;
-@property(nonatomic, retain) NSString *email;
-
-+ (LAAddressEntryToken*)entryTokenFromEditingString:(NSString*)string;
--(id)initWithName:(NSString*)aname andEmail:(NSString*)anemail;
-- (NSString*)editingString;
-@end
+#import "LAAddressEntryToken.h"
 
 // The actual AddressBook selection controller. Implement the delegate protocol to get the info back.
 @protocol LAAddressBookViewDelegate;

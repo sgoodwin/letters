@@ -9,37 +9,6 @@
 #import "LAAddressBookViewController.h"
 #import <AddressBook/AddressBook.h>
 
-@implementation LAAddressEntryToken
-@synthesize name, email;
-
-+ (LAAddressEntryToken*)entryTokenFromEditingString:(NSString*)string{
-	NSRange aRange = [string rangeOfString:@"<"];
-	if(aRange.location == NSNotFound){
-		return nil;
-	}
-	
-	NSString *name = [string substringToIndex:aRange.location];
-	
-	NSCharacterSet *bracketSet = [NSCharacterSet characterSetWithCharactersInString:@"<>"];
-	NSString *email = [[string substringFromIndex:aRange.location] stringByTrimmingCharactersInSet:bracketSet];
-	return [[[self alloc] initWithName:name andEmail:email] autorelease];
-}
-
-
--(id)initWithName:(NSString*)aname andEmail:(NSString*)anemail{
-	if((self = [super init])){
-		self.name = aname;
-		self.email = anemail;
-	}
-	return self;
-}
-
-- (NSString*)editingString{
-	return [NSString stringWithFormat:@"%@ <%@>", self.name, self.email];
-}
-@end
-
-
 @implementation LAAddressBookViewController
 @synthesize peoplePicker, accessoryView, delegate;
 

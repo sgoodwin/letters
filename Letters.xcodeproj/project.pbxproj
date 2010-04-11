@@ -15,6 +15,7 @@
 		9B6D6C83115C4A9E00414626 /* LAAddressBookView.xib in Resources */ = {isa = PBXBuildFile; fileRef = 9B6D6C81115C4A9E00414626 /* LAAddressBookView.xib */; };
 		9B6D6C86115C4AC200414626 /* LAAddressBookViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 9B6D6C85115C4AC200414626 /* LAAddressBookViewController.m */; };
 		9BCE08EF11712DBF00E3333B /* LAAddressEntryTokenSource.m in Sources */ = {isa = PBXBuildFile; fileRef = 9BCE08EE11712DBF00E3333B /* LAAddressEntryTokenSource.m */; };
+		9BCE0A671171462100E3333B /* LAAddressEntryToken.m in Sources */ = {isa = PBXBuildFile; fileRef = 9BCE0A661171462100E3333B /* LAAddressEntryToken.m */; };
 		AAB3471511117A8800C270B4 /* LAPrefsGeneralModule.m in Sources */ = {isa = PBXBuildFile; fileRef = AAB3471411117A8800C270B4 /* LAPrefsGeneralModule.m */; };
 		AAB34744111195D400C270B4 /* LAPrefsFontsAndColorsModule.m in Sources */ = {isa = PBXBuildFile; fileRef = AAB34743111195D400C270B4 /* LAPrefsFontsAndColorsModule.m */; };
 		AAB3489B1112118600C270B4 /* LAPrefsAccountsModule.m in Sources */ = {isa = PBXBuildFile; fileRef = AAB3489A1112118600C270B4 /* LAPrefsAccountsModule.m */; };
@@ -91,6 +92,8 @@
 		9B6D6C85115C4AC200414626 /* LAAddressBookViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = LAAddressBookViewController.m; path = source/LAAddressBookViewController.m; sourceTree = "<group>"; };
 		9BCE08ED11712DBF00E3333B /* LAAddressEntryTokenSource.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = LAAddressEntryTokenSource.h; path = source/LAAddressEntryTokenSource.h; sourceTree = "<group>"; };
 		9BCE08EE11712DBF00E3333B /* LAAddressEntryTokenSource.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = LAAddressEntryTokenSource.m; path = source/LAAddressEntryTokenSource.m; sourceTree = "<group>"; };
+		9BCE0A651171462100E3333B /* LAAddressEntryToken.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = LAAddressEntryToken.h; path = source/LAAddressEntryToken.h; sourceTree = "<group>"; };
+		9BCE0A661171462100E3333B /* LAAddressEntryToken.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = LAAddressEntryToken.m; path = source/LAAddressEntryToken.m; sourceTree = "<group>"; };
 		AAB3471311117A8800C270B4 /* LAPrefsGeneralModule.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = LAPrefsGeneralModule.h; path = source/prefs/LAPrefsGeneralModule.h; sourceTree = "<group>"; };
 		AAB3471411117A8800C270B4 /* LAPrefsGeneralModule.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = LAPrefsGeneralModule.m; path = source/prefs/LAPrefsGeneralModule.m; sourceTree = "<group>"; };
 		AAB3471A11117FA700C270B4 /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = resources/English.lproj/LAPrefsGeneralModule.xib; sourceTree = "<group>"; };
@@ -190,10 +193,7 @@
 		2A37F4ABFDCFA73011CA2CEA /* Classes */ = {
 			isa = PBXGroup;
 			children = (
-				9B6D6C84115C4AC200414626 /* LAAddressBookViewController.h */,
-				9B6D6C85115C4AC200414626 /* LAAddressBookViewController.m */,
-				9BCE08ED11712DBF00E3333B /* LAAddressEntryTokenSource.h */,
-				9BCE08EE11712DBF00E3333B /* LAAddressEntryTokenSource.m */,
+				9BCE0A771171468B00E3333B /* Address Book Support */,
 				CCF4131D110D36D400401D5D /* LAActivityViewer.h */,
 				CCF4131E110D36D400401D5D /* LAActivityViewer.m */,
 				CCA5544B1106DF4D00CEEFF4 /* LAAppDelegate.h */,
@@ -237,6 +237,19 @@
 				1058C7A8FEA54F5311CA2CBB /* Other Frameworks */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		9BCE0A771171468B00E3333B /* Address Book Support */ = {
+			isa = PBXGroup;
+			children = (
+				9B6D6C84115C4AC200414626 /* LAAddressBookViewController.h */,
+				9B6D6C85115C4AC200414626 /* LAAddressBookViewController.m */,
+				9BCE08ED11712DBF00E3333B /* LAAddressEntryTokenSource.h */,
+				9BCE08EE11712DBF00E3333B /* LAAddressEntryTokenSource.m */,
+				9BCE0A651171462100E3333B /* LAAddressEntryToken.h */,
+				9BCE0A661171462100E3333B /* LAAddressEntryToken.m */,
+			);
+			name = "Address Book Support";
 			sourceTree = "<group>";
 		};
 		AAB346E911115F0A00C270B4 /* Prefs */ = {
@@ -418,6 +431,7 @@
 				CC220D6711309A92000B46D8 /* LAMessageListView.m in Sources */,
 				9B6D6C86115C4AC200414626 /* LAAddressBookViewController.m in Sources */,
 				9BCE08EF11712DBF00E3333B /* LAAddressEntryTokenSource.m in Sources */,
+				9BCE0A671171462100E3333B /* LAAddressEntryToken.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

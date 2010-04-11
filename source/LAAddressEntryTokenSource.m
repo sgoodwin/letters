@@ -13,8 +13,9 @@
 @implementation LAAddressEntryTokenSource
 
 - (NSString *)tokenField:(NSTokenField *)tokenField displayStringForRepresentedObject:(id)representedObject{
-	NSLog(@"representedObject: %@, name: %@", representedObject, [representedObject name]);
-	return [representedObject name];
+	if([representedObject respondsToSelector:@selector(firstName)])
+		return [NSString stringWithFormat:@"%@ %@", [representedObject valueForKey:@"firstName"], [representedObject valueForKey:@"lastName"]];
+	return representedObject;
 }
 
 - (NSTokenStyle)tokenField:(NSTokenField *)tokenField styleForRepresentedObject:(id)representedObject{
@@ -25,15 +26,22 @@
 
 - (NSArray *)tokenField:(NSTokenField *)tokenField completionsForSubstring:(NSString *)substring indexOfToken:(NSInteger)tokenIndex indexOfSelectedItem:(NSInteger *)selectedIndex{
 	ABAddressBook *book = [ABAddressBook sharedAddressBook];
-	ABSearchElement *search = [ABPerson searchElementForProperty:kABFirstNameProperty label:nil key:nil value:substring comparison:kABContainsSubStringCaseInsensitive];
+	ABSearchElement *search = [ABPerson searchElementForProperty:kABFirstNameProperty label:nil key:nil value:substring comparison:kABPrefixMatchCaseInsensitive];
 	NSArray *matchingEntries = [book recordsMatchingSearchElement:search];
+	NSArray *results = [self tokenArrayFromPeople:matchingEntries withMatchField:LAAddressEntryFirstName];
+	NSLog(@"first name matches: %@", results);
 	
-	search = [ABPerson searchElementForProperty:kABLastNameProperty label:nil key:nil value:substring comparison:kABContainsSubStringCaseInsensitive];
-	matchingEntries  = [matchingEntries arrayByAddingObjectsFromArray:[book recordsMatchingSearchElement:search]];
+	search = [ABPerson searchElementForProperty:kABLastNameProperty label:nil key:nil value:substring comparison:kABPrefixMatchCaseInsensitive];
+	matchingEntries  = [book recordsMatchingSearchElement:search];
+	results = [results arrayByAddingObjectsFromArray:[self tokenArrayFromPeople:matchingEntries withMatchField:LAAddressEntryLastName]];
+	NSLog(@"last name matches: %@", results);
 	
-	search = [ABPerson searchElementForProperty:kABEmailProperty label:nil key:nil value:substring comparison:kABContainsSubStringCaseInsensitive];
-	matchingEntries  = [matchingEntries arrayByAddingObjectsFromArray:[book recordsMatchingSearchElement:search]];
-	return [self tokenArrayFromPeople:matchingEntries];
+	search = [ABPerson searchElementForProperty:kABEmailProperty label:nil key:nil value:substring comparison:kABPrefixMatchCaseInsensitive];
+	matchingEntries  = [book recordsMatchingSearchElement:search];
+	results = [results arrayByAddingObjectsFromArray:[self tokenArrayFromPeople:matchingEntries withMatchField:LAAddressEntryEmail]];
+	NSLog(@"email matches: %@", results);
+	
+	return results;
 }
 
 - (NSString *)tokenField:(NSTokenField *)tokenField editingStringForRepresentedObject:(id)representedObject{
@@ -50,24 +58,26 @@
 	return tokens;
 }
 
-- (NSArray *)tokenArrayFromPeople:(NSArray*)people{
+- (NSArray *)tokenArrayFromPeople:(NSArray*)people withMatchField:(LAAddressEntryMatchField)field{
 	NSMutableArray *result = [NSMutableArray arrayWithCapacity:[people count]];
 	LAAddressEntryToken *token = [[LAAddressEntryToken alloc] init];
 	[people enumerateObjectsWithOptions:NSEnumerationConcurrent usingBlock:^(id obj, NSUInteger idx, BOOL *stop){
 		ABMultiValue *values = [(ABPerson*)obj valueForProperty:kABEmailProperty];
-		NSString *nameString = [[NSString alloc] initWithFormat:@"%@ %@", 
-								[(ABPerson*)obj valueForProperty:kABFirstNameProperty], 
-								[(ABPerson*)obj valueForProperty:kABLastNameProperty]];
+		NSString *firstName = [(ABPerson*)obj valueForProperty:kABFirstNameProperty];
+		NSString *lastName = [(ABPerson*)obj valueForProperty:kABLastNameProperty];
+								
 		for(NSUInteger i = 0; i < [values count];i++){
 			NSString *email = [values valueAtIndex:i];
-			token.name = nameString;
-			token.email = email;
-			[result addObject:[token editingString]];
+			if(!!email){
+				token.email = email;
+				token.firstName = firstName;
+				token.lastName = lastName;
+				token.matchField = field;
+				[result addObject:[token editingString]];
+			}
 		}
-		//[nameString release];
 		return;
 	}];
-	NSLog(@"Results: %@", result);
 	return result;
 }
 @end
