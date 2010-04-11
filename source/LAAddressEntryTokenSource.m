@@ -19,7 +19,7 @@
 
 + (LAAddressEntryToken*)entryTokenFromEditingString:(NSString*)string{
 	if([string rangeOfString:@"<"].location != NSNotFound && [string rangeOfString:@">"].location != NSNotFound){
-		return [self handleParenthesisVersion:string];
+		return [self handleBracketVersion:string];
 	}
 	if([string rangeOfString:@"("].location != NSNotFound && [string rangeOfString:@")"].location != NSNotFound){
 		return [self handleParenthesisVersion:string];
