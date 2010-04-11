@@ -11,7 +11,6 @@
 
 @implementation LADocument
 @synthesize statusMessage;
-@synthesize toList;
 @synthesize fromList;
 @synthesize subject;
 @synthesize message;
@@ -32,7 +31,6 @@
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     
     [statusMessage release];
-    [toList release];
     [fromList release];
     [subject release];
     [statusMessage release];
@@ -68,6 +66,14 @@
     return nil;
 }
 
+- (NSString *)toList{
+	return [self.toField stringValue];
+}
+
+- (void)setToList:(NSString *)string{
+	[self.toField setStringValue:string];
+}
+
 - (BOOL)readFromData:(NSData *)data ofType:(NSString *)typeName error:(NSError **)outError {
     // Insert code here to read your document from the given data of the specified type.  If the given outError != NULL, ensure that you set *outError when returning NO.
 
@@ -96,14 +102,14 @@
         return;
     }
     
-    if (![toList length]) {
+    if (![self.toList length]) {
         debug(@"need a _toList!");
         return;
     }
     
     NSMutableSet *toSet = [NSMutableSet set];
     
-    for (NSString *addr in [toList componentsSeparatedByString:@" "]) {
+    for (NSString *addr in [self.toList componentsSeparatedByString:@" "]) {
         [toSet addObject:[LBAddress addressWithName:@"" email:addr]];
     }
     
@@ -152,11 +158,7 @@
 
 - (void)addToAddress:(LAAddressEntryToken *)address{
 	[self willChangeValueForKey:@"toList"];
-	if(!!self.toList){
-		self.toList = [self.toList stringByAppendingFormat:@", %@", [address email]];
-	}else{
-		self.toList = [address email];
-	}
+	self.toField.objectValue = [self.toField.objectValue arrayByAddingObject:address];
 	[self didChangeValueForKey:@"toList"];
 }
 

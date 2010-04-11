@@ -34,35 +34,46 @@
 	if(!!values && [values count] > 0){
 		email =  [values objectAtIndex:0];
 	}
+	if(!email){
+		NSLog(@"No use in inserting address entries with no email value.");
+		return nil;
+	}
 	values = nil;
 	
 	values = [self.peoplePicker selectedRecords];
 	if(!!values && [values count] > 0){
 		person = [values objectAtIndex:0];
 	}
-	NSString *personString = [[NSString alloc] initWithFormat:@"%@ %@", [person valueForProperty:kABFirstNameProperty], [person valueForProperty:kABLastNameProperty], nil];
 	
-	LAAddressEntryToken *entry = [[[LAAddressEntryToken alloc] initWithName:personString andEmail:email] autorelease];
-	[personString release];
+	LAAddressEntryToken *entry = [[LAAddressEntryToken alloc] init];
+	entry.firstName = [person valueForProperty:kABFirstNameProperty];
+	entry.lastName = [person valueForProperty:kABLastNameProperty];
+	entry.email = email;
 	
 	return entry;
 }
 
 - (IBAction)to:(id)sender{
 	if(!!self.delegate && [self.delegate respondsToSelector:@selector(addToAddress:)]){
-		[self.delegate addToAddress:[self selectedEntry]];
+		LAAddressEntryToken *token = [self selectedEntry];
+		if(!!token)
+			[self.delegate addToAddress:token];
 	}
 }
 
 - (IBAction)cc:(id)sender{
 	if(!!self.delegate && [self.delegate respondsToSelector:@selector(addToAddress:)]){
-		[self.delegate addToAddress:[self selectedEntry]];
+		LAAddressEntryToken *token = [self selectedEntry];
+		if(!!token)
+			[self.delegate addCcAddress:token];
 	}
 }
 
 - (IBAction)bcc:(id)sender{
 	if(!!self.delegate && [self.delegate respondsToSelector:@selector(addToAddress:)]){
-		[self.delegate addToAddress:[self selectedEntry]];
+		LAAddressEntryToken *token = [self selectedEntry];
+		if(!!token)
+			[self.delegate addBccAddress:token];
 	}
 }
 

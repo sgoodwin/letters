@@ -24,6 +24,5 @@ typedef enum {
 @property(nonatomic, retain) NSString *email;
 @property(nonatomic, assign) LAAddressEntryMatchField matchField;
 
-+ (LAAddressEntryToken*)entryTokenFromEditingString:(NSString*)string;
 - (NSString*)editingString;
 @end
