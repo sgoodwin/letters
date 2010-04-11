@@ -16,19 +16,15 @@
 	// should default to a "John Doe <john.doe@me.com>" type string.
 	switch(self.matchField){
 		case LAAddressEntryFirstName:
-			NSLog(@"first name match");
 			return [NSString stringWithFormat:@"%@ %@ <%@>", self.firstName, self.lastName, self.email];
 			break;
 		case LAAddressEntryLastName:
-			NSLog(@"last name match");
 			return [NSString stringWithFormat:@"%@ %@ <%@>", self.lastName, self.firstName, self.email];
 			break;
 		case LAAddressEntryEmail:
-			NSLog(@"email match");
 			return [NSString stringWithFormat:@"%@ (%@ %@)", self.email, self.firstName, self.lastName];
 			break;
 		default:
-			NSLog(@"default");
 			return [NSString stringWithFormat:@"%@ %@ <%@>", self.firstName, self.lastName, self.email];
 			break;
 	}
