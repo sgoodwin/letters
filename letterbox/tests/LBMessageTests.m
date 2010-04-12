@@ -30,7 +30,7 @@
     LBMIMEMessage *mm = [[LBMIMEParser messageFromString:message] autorelease];
     
     GHAssertNotNil(mm, @"Creation of a LBMIMEMessage");
-    GHAssertEqualStrings([mm boundary], @"===============0703719983==", @"Checking the boundry");
+    GHAssertEqualStrings([mm multipartBoundary], @"===============0703719983==", @"Checking the boundry");
     GHAssertTrue([[mm contentType] hasPrefix:@"multipart/mixed"], @"Checking the contentType");
     GHAssertTrue([[mm subparts] count] == 2, @"the count of subparts");
     GHAssertTrue([mm isMultipart], @"checking that yes indeed it isMultipartAlternative");
@@ -38,10 +38,7 @@
     GHAssertTrue([[[[mm subparts] objectAtIndex:0] contentType] hasPrefix:@"multipart/alternative"], @"the type of the first subpart");
     GHAssertTrue([[[[mm subparts] objectAtIndex:1] contentType] hasPrefix:@"text/plain"], @"the type of the second subpart");
     
-    LBMIMEMessage *nosuchpart = [mm partForType: @"image/jpeg"];
-    GHAssertNil(nosuchpart, @"no such part");
-    
-    LBMIMEMessage *altpart = [mm partForType: @"multipart/alternative"];
+    LBMIMEMessage *altpart = [[mm subparts] objectAtIndex:0];
     GHAssertNotNil(altpart, @"the alternative part");
     GHAssertTrue([[altpart subparts] count] == 2, @"two sub-parts in altpart");
     
@@ -52,23 +49,15 @@
     
     LBMIMEMessage *subpart_html = [[altpart subparts] objectAtIndex:1];
     GHAssertTrue([[subpart_html contentType] hasPrefix:@"text/html"], @"the type of the html alternative part");
-    GHAssertTrue([[subpart_html content] hasPrefix:@"<html><head></head><body style"], @"subpart_html starts with the right text");
-    GHAssertTrue([[subpart_html content] rangeOfString:@"<blockquote type=\"cite\">Also, let's learn some IMAP."].location != NSNotFound, @"subpart_html contains the right substring");
-    GHAssertTrue([[subpart_html content] hasSuffix:@"<br>Boone</div></body></html>"], @"subpart_html ends with the right text");
+    NSString *html_content = [[[NSString alloc] initWithData:[subpart_html contentTransferDecoded] encoding:NSASCIIStringEncoding] autorelease];
+    GHAssertTrue([html_content hasPrefix:@"<html><head></head><body style"], @"subpart_html starts with the right text");
+    GHAssertTrue([html_content rangeOfString:@"<blockquote type=\"cite\">Also, let's learn some IMAP."].location != NSNotFound, @"subpart_html contains the right substring");
+    GHAssertTrue([html_content hasSuffix:@"<br>Boone</div></body></html>"], @"subpart_html ends with the right text");
     
-    LBMIMEMessage *textpart = [mm availablePartForTypeFromArray:[NSArray arrayWithObjects: @"text/plain", @"text/html", nil]];
-    
+    LBMIMEMessage *textpart = [[mm subparts] objectAtIndex:1];
     GHAssertNotNil(textpart, @"the part");
     
-    
     GHAssertEqualStrings([textpart content], @"Hello sir, this is the content, and honestly it isn't much.  Sorry.\n\nLinebreak!", @"Checking the content");
-    
-    textpart = [mm availablePartForTypeFromArray:[NSArray arrayWithObjects: @"multipart/alternative", nil]];
-    
-    
-    GHAssertNotNil(textpart, @"the multipart part");
-    
-    
 }
 
 - (void) testBoundaryWarts {
@@ -110,7 +99,22 @@
     LBMIMEMessage *binpart = [[message subparts] objectAtIndex:0];
     GHAssertTrue([[binpart contentType] hasPrefix:@"somerandom/mimetype"], @"proper content-type for part");
     debug(@"content: %@", [binpart content]);
-    GHAssertTrue([[binpart decodedData] isEqualToData:[@"SOME binary DATA" dataUsingEncoding:NSASCIIStringEncoding]], @"proper content for part");
+    GHAssertTrue([[binpart contentTransferDecoded] isEqualToData:[@"SOME binary DATA" dataUsingEncoding:NSASCIIStringEncoding]], @"proper content for part");
+}
+
+- (void) testRetrieveHeaderValues {
+    LBMIMEMessage *message = [LBMIMEMessage message];
+    [message addHeaderWithName:@"MY-HEADER" andValue:@"hello"];
+    GHAssertTrue([message headerValueForName:@"not-here"] == nil, @"nil for header-not-found");
+    GHAssertTrue([[message headerValueForName:@"MY-HEADER"] isEqualToString:@"hello"], @"retrieve with same case");
+    GHAssertTrue([[message headerValueForName:@"My-HeAdEr"] isEqualToString:@"hello"], @"retrieve with other case");
+}
+
+- (void) testHeaderDefect {
+    NSString *source = @"Header-With-Defect\n\n\n";
+    LBMIMEMessage *message = [[LBMIMEParser messageFromString:source] autorelease];
+    GHAssertTrue([message.defects count] == 1, @"one defect");
+    GHAssertTrue([[message.defects objectAtIndex:0] isEqualToString:@"Malformed header: \"Header-With-Defect\""], @"text of defect");
 }
 
 @end
@@ -122,10 +126,12 @@
                             @"X-HEADER-ONE: header value one",
                             @"X-HEADER-TWO: second value",
                             nil];
-    NSDictionary *headers = [LBMIMEParser headersFromLines:headers_src defects:nil];
+    NSMutableDictionary *headers = [NSMutableDictionary dictionary];
+    for (NSArray *h in [LBMIMEParser headersFromLines:headers_src defects:nil])
+        [headers setObject:[h objectAtIndex:1] forKey:[h objectAtIndex:0]];
     GHAssertTrue([headers count] == 2, @"Two headers");
-    GHAssertTrue([[headers valueForKey:@"x-header-one"] isEqualToString:@"header value one"], @"Value of first header");
-    GHAssertTrue([[headers valueForKey:@"x-header-two"] isEqualToString:@"second value"], @"Value of second header");
+    GHAssertTrue([[headers valueForKey:@"X-HEADER-ONE"] isEqualToString:@"header value one"], @"Value of first header");
+    GHAssertTrue([[headers valueForKey:@"X-HEADER-TWO"] isEqualToString:@"second value"], @"Value of second header");
 }
 
 - (void) testMultiLine {
@@ -137,11 +143,13 @@
                             @" on multiple lines",
                             @"X-HEADER-THREE: and a third header",
                             nil];
-    NSDictionary *headers = [LBMIMEParser headersFromLines:headers_src defects:nil];
+    NSMutableDictionary *headers = [NSMutableDictionary dictionary];
+    for (NSArray *h in [LBMIMEParser headersFromLines:headers_src defects:nil])
+        [headers setObject:[h objectAtIndex:1] forKey:[h objectAtIndex:0]];
     GHAssertTrue([headers count] == 3, @"Three headers");
-    GHAssertTrue([[headers valueForKey:@"x-header-one"] isEqualToString:@"header value one with other line"], @"Value of first header");
-    GHAssertTrue([[headers valueForKey:@"x-header-two"] isEqualToString:@"second value with its own continuation on multiple lines"], @"Value of second header");
-    GHAssertTrue([[headers valueForKey:@"x-header-three"] isEqualToString:@"and a third header"], @"Value of third header");
+    GHAssertTrue([[headers valueForKey:@"X-HEADER-ONE"] isEqualToString:@"header value one with other line"], @"Value of first header");
+    GHAssertTrue([[headers valueForKey:@"X-HEADER-TWO"] isEqualToString:@"second value with its own continuation on multiple lines"], @"Value of second header");
+    GHAssertTrue([[headers valueForKey:@"X-HEADER-THREE"] isEqualToString:@"and a third header"], @"Value of third header");
 }
 
 - (void) testDefects {
@@ -153,15 +161,52 @@
                             @"   with other line",
                             nil];
     NSMutableArray *defects = [NSMutableArray array];
-    NSDictionary *headers = [LBMIMEParser headersFromLines:headers_src defects:defects];
+    NSMutableDictionary *headers = [NSMutableDictionary dictionary];
+    for (NSArray *h in [LBMIMEParser headersFromLines:headers_src defects:defects])
+        [headers setObject:[h objectAtIndex:1] forKey:[h objectAtIndex:0]];
     GHAssertTrue([headers count] == 1, @"One valid header");
-    GHAssertTrue([[headers valueForKey:@"x-header-ok"] isEqualToString:@"fine header"], @"Value of header");
+    GHAssertTrue([[headers valueForKey:@"X-HEADER-OK"] isEqualToString:@"fine header"], @"Value of header");
     debug(@"defects: %@", defects);
     GHAssertTrue([defects count] == 4, @"Four defects");
     GHAssertTrue([[defects objectAtIndex:0] isEqualToString:@"Unexpected header continuation: \"   a bogus continuation\""], @"Text of first defect");
     GHAssertTrue([[defects objectAtIndex:1] isEqualToString:@"Unexpected header continuation: \"\tanother bogus continuation\""], @"Text of second defect");
     GHAssertTrue([[defects objectAtIndex:2] isEqualToString:@"Malformed header: \"X-HEADER-NO-SEPARATOR\""], @"Text of third defect");
     GHAssertTrue([[defects objectAtIndex:3] isEqualToString:@"Unexpected header continuation: \"   with other line\""], @"Text of fourth defect");
+}
+
+@end
+
+@implementation LBMessagePayloadTests: GHTestCase
+
+- (void) testStringPayload {
+    NSString *message_src = (@"Header: value\n"
+                             @"\n"
+                             @"the body here\n");
+    LBMIMEMessage *message = [LBMIMEParser messageFromString:message_src];
+    GHAssertTrue([message isMultipart] == NO, @"message not multipart");
+    GHAssertTrue([[message content] isEqualToString:@"the body here"], @"message body");
+    GHAssertTrue([[message subparts] count] == 0, @"message has no sub-messages");
+    
+    [message setContent:@"new body"];
+    GHAssertTrue([[message content] isEqualToString:@"new body"], @"new value for body");
+}
+
+- (void) testContentTransferEncoding {
+    NSString *message1_src = (@"Content-Transfer-Encoding: base64\n"
+                             @"\n"
+                             @"U09NRSBiaW5hcnkgREFUQQ==\n");
+    LBMIMEMessage *message1 = [LBMIMEParser messageFromString:message1_src];
+    GHAssertTrue([message1 isMultipart] == NO, @"message not multipart");
+    GHAssertTrue([[message1 content] isEqualToString:@"U09NRSBiaW5hcnkgREFUQQ=="], @"encoded message body");
+    GHAssertTrue([[message1 contentTransferDecoded] isEqualToData:[@"SOME binary DATA" dataUsingEncoding:NSASCIIStringEncoding]], @"decoded message body");
+    
+    NSString *message2_src = (@"Content-Transfer-Encoding: Quoted-Printable\n"
+                              @"\n"
+                              @"hello=20=3E=3E=20world\n");
+    LBMIMEMessage *message2 = [LBMIMEParser messageFromString:message2_src];
+    GHAssertTrue([message2 isMultipart] == NO, @"message not multipart");
+    GHAssertTrue([[message2 content] isEqualToString:@"hello=20=3E=3E=20world"], @"encoded message body");
+    GHAssertTrue([[message2 contentTransferDecoded] isEqualToData:[@"hello >> world" dataUsingEncoding:NSASCIIStringEncoding]], @"decoded message body");
 }
 
 @end

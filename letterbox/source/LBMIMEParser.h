@@ -9,18 +9,22 @@
 #import <Cocoa/Cocoa.h>
 #import "LBMIMEMessage.h"
 
+// E-mail (RFC 2822) message parser
 @interface LBMIMEParser : NSObject
 
-// parses the string, pull out the properties and sets the content up as required. additionally, if the content is multi-part, will create a subtree of parts recursively.
+// Parse |sourceText| and create one LBMIMEMessage object. If the content is
+// multipart, the parser is called recursively, so the output will contain a
+// tree of message objects.
 + (LBMIMEMessage*)messageFromString:(NSString*)sourceText;
-+ (NSDictionary*)headersFromLines:(NSArray*)lines defects:(NSMutableArray*)parseDefects;
-+ (NSString*)boundaryFromContentType:(NSString*)contentTypeString;
-+ (NSString*)valueForAttribute:(NSString*)attribName inPropertyString:(NSString*)property;
+
+// Parse |lines| (assumed to be list of NSString) as message headers. The
+// output is a list of NSArray items, each with two values: header name and
+// header value. If |parsingDefects| is not nil, any problems encountered are
+// appended to it as strings.
++ (NSArray*)headersFromLines:(NSArray*)lines defects:(NSMutableArray*)parsingDefects;
 
 @end
 
 
 NSString *LBMIMEStringByDecodingPrintedQuoteableWithCharacterSet( NSString *inputString, NSString *characterSet );
-NSString *LBMIMEStringByDecodingStringFromEncodingWithCharSet( NSString *inputString, NSString *transferEncoding, NSString *charSet );
 NSString *LBMIMEStringByDecodingEncodedWord( NSString *inputString );
-NSData *LBMIMEDataByDecodingBase64String( NSString *encodedString );

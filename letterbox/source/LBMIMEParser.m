@@ -7,10 +7,7 @@
 //
 
 #import "LBMIMEParser.h"
-#import "LetterBoxUtilities.h"
 #import "LBNSStringAdditions.h"
-#include <openssl/bio.h>
-#include <openssl/evp.h>
 
 typedef enum {
     LBMIMEParserStateReadingProperties,
@@ -27,9 +24,8 @@ typedef enum {
     LBMIMEMessage *message = [LBMIMEMessage message];
     
     NSMutableArray *lines = [NSMutableArray array];
-    
     NSMutableArray *contentLines = [NSMutableArray array];
-
+    __block NSString *boundary = nil;
     __block LBMIMEParserState state = LBMIMEParserStateReadingProperties;
     
     [sourceText enumerateLinesUsingBlock:^(NSString *string, BOOL *stop) {
@@ -39,15 +35,14 @@ typedef enum {
                 // blank line indicates end of properties block ...
                 if ([[string trim] length] == 0) {
                     
-                    message.properties = [self headersFromLines:lines defects:nil];
-                    message.boundary   = [self boundaryFromContentType:message.contentType];
+                    for (NSArray *h in [self headersFromLines:lines defects:message.defects])
+                        [message addHeaderWithName:[h objectAtIndex:0] andValue:[h objectAtIndex:1]];
+                    boundary = [message multipartBoundary];
                     
-                    //debug( @"properties: %@", message.properties );
-                    //debug( @"boundary: %@", message.boundary );
                     [lines removeAllObjects];
                     
-                    if ([[message.contentType lowercaseString] hasPrefix:@"multipart/"]) {
-                        if (message.boundary != nil) {
+                    if ([[[message contentType] lowercaseString] hasPrefix:@"multipart/"]) {
+                        if (boundary != nil) {
                             state = LBMIMEParserStateReadingContent;
                         }
                         else {
@@ -74,16 +69,16 @@ typedef enum {
                 break;
                 
             case LBMIMEParserStateDetermineBoundry:
-                
+                // TODO: do we really care about messages that don't advertise their boundary properly? we could just mark them as defective.
                 if ([string hasPrefix:@"--"]) {
-                    message.boundary = [string substringFromIndex:2];
+                    boundary = [string substringFromIndex:2];
                     state = LBMIMEParserStateReadingContent;
                 }
                 
                 break;
                 
             case LBMIMEParserStateReadingContent:
-                if ([string hasPrefix:[NSString stringWithFormat:@"--%@", message.boundary]]) {
+                if ([string hasPrefix:[NSString stringWithFormat:@"--%@", boundary]]) {
                     [contentLines addObjectsFromArray:lines];
                     [lines removeAllObjects];
                     state = LBMIMEParserStateReadingParts;
@@ -95,7 +90,7 @@ typedef enum {
                 
             case LBMIMEParserStateReadingParts:
                 
-                if ([string hasPrefix: [NSString stringWithFormat:@"--%@", message.boundary]]) {
+                if ([string hasPrefix: [NSString stringWithFormat:@"--%@", boundary]]) {
                     [lines addObject:@""];
                     NSString *partSourceText = [lines componentsJoinedByString: @"\n"];
                     
@@ -106,7 +101,7 @@ typedef enum {
                     
                     [lines removeAllObjects];
                     
-                    if ([string isEqual:[NSString stringWithFormat: @"--%@--", message.boundary]]) {
+                    if ([string isEqual:[NSString stringWithFormat: @"--%@--", boundary]]) {
                         state = LBMIMEParserStateFinishedReadingParts;
                     }
                     else {
@@ -133,21 +128,14 @@ typedef enum {
         NSLog(@"MIME message messed up somehow - we didn't hit the terminator");
     }
     
-    NSString *newContent = [contentLines componentsJoinedByString:@"\n"];
-    NSString *charSet = [self valueForAttribute:@"charset" inPropertyString:message.contentType];
-    NSString *transferEncoding = message.contentTransferEncoding;
-    
-    NSString *decodedNewContent = LBMIMEStringByDecodingStringFromEncodingWithCharSet( newContent, transferEncoding, charSet );
-    
-    [message.content release];
-    message.content = [decodedNewContent copy];
+    message.content = [contentLines componentsJoinedByString:@"\n"];
     
     return message;
 }
 
-+ (NSDictionary*)headersFromLines:(NSArray*)lines defects:(NSMutableArray*)parseDefects {
++ (NSArray*)headersFromLines:(NSArray*)lines defects:(NSMutableArray*)parsingDefects {
     
-    NSMutableDictionary *headers = [NSMutableDictionary dictionary];
+    NSMutableArray *headers = [NSMutableArray array];
     NSString *lastHeader = nil;
     NSString *lastValue = nil;
     NSCharacterSet *blanks = [NSCharacterSet whitespaceAndNewlineCharacterSet];
@@ -155,8 +143,8 @@ typedef enum {
     for (NSString *line in lines) {
         if ([line hasPrefix:@" "] || [line hasPrefix:@"\t"]) {
             if (lastValue == nil) {
-                if (parseDefects != nil)
-                    [parseDefects addObject:[NSString stringWithFormat: @"Unexpected header continuation: \"%@\"", line]];
+                if (parsingDefects != nil)
+                    [parsingDefects addObject:[NSString stringWithFormat: @"Unexpected header continuation: \"%@\"", line]];
                 continue;
             }
             
@@ -167,8 +155,7 @@ typedef enum {
         }
         
         if (lastHeader != nil) {
-            // TODO: preserve case of header keys, but allow for case-insensitive retrieval
-            [headers setObject:lastValue forKey:[lastHeader lowercaseString]];
+            [headers addObject:[NSArray arrayWithObjects:lastHeader, lastValue, nil]];
             lastHeader = nil;
             lastValue = nil;
         }
@@ -176,8 +163,8 @@ typedef enum {
         NSRange separatorRange = [line rangeOfString:@": "];
         
         if (separatorRange.location == NSNotFound) {
-            if (parseDefects != nil)
-                [parseDefects addObject:[NSString stringWithFormat: @"Malformed header: \"%@\"", line]];
+            if (parsingDefects != nil)
+                [parsingDefects addObject:[NSString stringWithFormat: @"Malformed header: \"%@\"", line]];
             continue;
         }
         
@@ -186,37 +173,10 @@ typedef enum {
     }
     
     if (lastHeader != nil) {
-        // TODO: preserve case of header keys, but allow for case-insensitive retrieval
-        [headers setObject:lastValue forKey:[lastHeader lowercaseString]];
+        [headers addObject:[NSArray arrayWithObjects:lastHeader, lastValue, nil]];
     }
     
     return headers;
-}
-
-+ (NSString*)valueForAttribute:(NSString*)attribName inPropertyString:(NSString*) property {
-    
-    NSString *attribString = nil;
-    NSArray *components = [property componentsSeparatedByString:@";"];
-    NSString *attribAssignment = [NSString stringWithFormat:@"%@=", attribName];
-    
-    for (NSString *component in components) {
-        if ([[[component lowercaseString] trim] hasPrefix:attribAssignment]) {
-            attribString = [component substringFromIndex:NSMaxRange([component rangeOfString:attribAssignment])];
-            
-            if ([attribString hasPrefix:@"\""] && [attribString hasSuffix:@"\""]) {
-                attribString = [attribString substringWithRange:NSMakeRange(1, [attribString length] - 2)]; // remove the "s on either end
-            }
-            
-            return attribString;
-        }
-    }
-    
-    return nil;
-}
-
-+ (NSString*)boundaryFromContentType:(NSString*)contentTypeString {
-    NSString *rough_value = [self valueForAttribute:@"boundary" inPropertyString:contentTypeString];
-    return [rough_value stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@" "]];
 }
 
 @end
@@ -251,45 +211,6 @@ NSString *LBMIMEStringByDecodingPrintedQuoteableWithCharacterSet( NSString *inpu
 //    }
     return nil;
 }
-
-NSString *LBMIMEStringByDecodingStringFromEncodingWithCharSet(NSString *inputString, NSString *transferEncoding, NSString *characterSet)
-{
-    NSString *decodedString = [NSString stringWithString:inputString];
-    
-    if ([transferEncoding isEqual: @"quoted-printable"]) {
-        decodedString = [decodedString stringByReplacingOccurrencesOfString:@"=\n" withString:@""];
-        decodedString = [decodedString stringByReplacingOccurrencesOfString:@"=" withString:@"%"];
-        
-        if ( [characterSet isCaseInsensitiveLike:@"ISO-8859-1"] ) {
-            decodedString = [decodedString stringByReplacingPercentEscapesUsingEncoding:NSISOLatin1StringEncoding];
-        }
-        else if ( [characterSet isCaseInsensitiveLike:@"UTF-8"] ) {
-            decodedString = [decodedString stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
-        }
-        else if ( [characterSet isCaseInsensitiveLike:@"ISO-8859-2"] ) {
-            decodedString = [decodedString stringByReplacingPercentEscapesUsingEncoding:NSISOLatin2StringEncoding];
-        }
-        else if ( [characterSet isCaseInsensitiveLike:@"ISO-8859-15"] ) {
-            // FIXME : jasonrm - Is this even allowed? From lists of encodings 15 looks to match ISO-8859-15 but I don't like hardcoding a number here.
-            decodedString = [decodedString stringByReplacingPercentEscapesUsingEncoding:15];
-        }
-        else if ( [characterSet isCaseInsensitiveLike:@"US-ASCII"] ){
-            decodedString = [decodedString stringByReplacingPercentEscapesUsingEncoding:NSASCIIStringEncoding];
-        }
-        else {
-            // FIXME : jasonrm - Only the most common (for someone in the US) encodings are supported, everything else is treated like ISO-8859-1
-            decodedString = [decodedString stringByReplacingPercentEscapesUsingEncoding:NSISOLatin1StringEncoding];
-        }
-    }
-    
-    if (decodedString == nil) {
-        NSLog(@"error decoding!");
-        decodedString = inputString;
-    }
-    
-    return decodedString;
-}
-
 
 // RFC 2047 "Encoded Word" Decoder
 // http://tools.ietf.org/html/rfc2047
@@ -347,7 +268,7 @@ NSString *LBMIMEStringByDecodingEncodedWord( NSString *inputString )
             NSString *decodedWord;
             
             // FIXME : jasonrm - Something about this doesn't seem right...
-            NSData *decodedData = LBMIMEDataByDecodingBase64String( encodedWord );
+            NSData *decodedData = LBMIMEDataFromBase64( encodedWord );
             
             if ( [characterSet isCaseInsensitiveLike:@"ISO-8859-1"] ) {
                 decodedWord = [[NSString alloc] initWithData:decodedData encoding:NSISOLatin1StringEncoding];
@@ -368,28 +289,4 @@ NSString *LBMIMEStringByDecodingEncodedWord( NSString *inputString )
         }
     }
     return decodedName;
-}
-
-NSData *LBMIMEDataByDecodingBase64String( NSString *encodedString )
-{
-    if ( ! [encodedString hasSuffix:@"\n"] ){
-        encodedString = [encodedString stringByAppendingString:@"\n"];
-    }
-    NSData *encodedData = [encodedString dataUsingEncoding:NSASCIIStringEncoding];
-    NSMutableData *decodedData = [NSMutableData data];
-    
-    char buf[512];
-    uint bufLength;
-    
-    BIO *b64coder = BIO_new(BIO_f_base64());
-    BIO *b64buffer = BIO_new_mem_buf((void *)[encodedData bytes], [encodedData length]);
-    
-    b64buffer = BIO_push(b64coder, b64buffer);
-    
-    while ( (bufLength = BIO_read(b64buffer, buf, 512)) > 0 ) {
-        [decodedData appendBytes:buf length:bufLength];
-    }
-    BIO_free_all(b64buffer);
-    
-    return [[[NSData alloc] initWithData:decodedData] autorelease];
 }

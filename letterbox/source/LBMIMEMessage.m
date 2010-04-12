@@ -7,21 +7,15 @@
 //
 
 #import "LBMIMEMessage.h"
-#import "LBMIMEParser.h"
+#import "LBNSStringAdditions.h"
+#include <openssl/bio.h>
+#include <openssl/evp.h>
 
 
 @implementation LBMIMEMessage
 
 @synthesize content;
-@synthesize boundary;
-
-+ (NSSet*)keyPathsForValuesAffectingValueForKey:(NSString *)key {
-    if ([key isEqual: @"properties"] ) {
-        return [NSSet setWithObjects: @"contentType", @"contentID", @"contentTransferEncoding", @"contentDisposition", nil];
-    }
-    
-    return [super keyPathsForValuesAffectingValueForKey:key];
-}
+@synthesize defects;
 
 + (LBMIMEMessage*) message {
     return [[LBMIMEMessage alloc] init];
@@ -30,19 +24,35 @@
 - (id)init {
     self = [super init];
     if (self != nil) {
-        properties  = [[NSMutableDictionary alloc] init];
-        subparts    = [[NSMutableArray alloc] init];
+        headers = [[NSMutableArray array] retain];
+        subparts = [[NSMutableArray array] retain];
+        defects = [[NSMutableArray array] retain];
     }
-    boundary = nil;
     return self;
 }
 
 - (void)dealloc {
     [subparts release];
-    [properties release];
+    [headers release];
+    [defects release];
     [content release];
-    [boundary release];
     [super dealloc];
+}
+
+- (void)addHeaderWithName:(NSString*)name andValue:(NSString*)value {
+    [headers addObject:[NSArray arrayWithObjects:name, value, nil]];
+}
+
+- (NSString*)headerValueForName:(NSString*)name {
+    name = [name lowercaseString];
+    for (NSArray *h in headers)
+        if ([name isEqualToString:[[h objectAtIndex:0] lowercaseString]])
+            return [h objectAtIndex:1];
+    return nil;
+}
+
+- (NSString*)contentType {
+    return [self headerValueForName:@"content-type"];
 }
 
 - (LBMIMEMessage*)superpart {
@@ -50,17 +60,7 @@
 }
 
 - (NSArray*)subparts {
-    return [[subparts copy] autorelease];
-}
-
-- (NSDictionary*)properties {
-    return [[properties copy] autorelease];
-}
-
-- (void)setProperties:(NSDictionary *)newProperties {
-    NSMutableDictionary *tmp = [newProperties mutableCopy];
-    [properties release];
-    properties = tmp;
+    return subparts;
 }
 
 - (void)addSubpart:(LBMIMEMessage *)subpart {
@@ -81,64 +81,14 @@
     [subparts removeObject: subpart];
 }
 
-- (NSString*)contentType {
-    return [properties objectForKey:@"content-type"];
-}
-
-- (void)setContentType:(NSString*)type {
-    
-    if (type) {
-        [properties setObject:type forKey:@"content-type"];
-    }
-    else {
-        [properties removeObjectForKey:@"content-type"];
-    }
-}
-
-- (NSString*)contentID {
-    return [properties objectForKey: @"content-id"];
-}
-
-- (void)setContentID:(NSString*)type {
-    
-    if (type) {
-        [properties setObject:type forKey:@"content-id"];
-    }
-    else {
-        [properties removeObjectForKey:@"content-id"];
-    }
-}
-
-- (NSString*)contentDisposition {
-    return [properties objectForKey: @"content-disposition"];
-}
-
-- (void)setContentDisposition:(NSString*)type {
-    if (type) {
-        [properties setObject:type forKey:@"content-disposition"];
-    }
-    else {
-        [properties removeObjectForKey:@"content-disposition"];
-    }
-}
-
-- (NSString*)contentTransferEncoding {
-    return [properties objectForKey:@"content-transfer-encoding"];
-}
-
-- (void)setContentTransferEncoding:(NSString*)type {
-    if (type) {
-        [properties setObject:type forKey:@"content-transfer-encoding"];
-    }
-    else {
-        [properties removeObjectForKey:@"content-transfer-encoding"];
-    }
-}
-
-- (NSData*)decodedData {
-    if ([self.contentTransferEncoding isEqualToString:@"base64"]) {
+- (NSData*)contentTransferDecoded {
+    NSString *cte = [[self headerValueForName:@"content-transfer-encoding"] lowercaseString];
+    if ([cte isEqualToString:@"base64"]) {
         NSString* base64_data = [content stringByReplacingOccurrencesOfString:@"\n" withString:@""];
-        return LBMIMEDataByDecodingBase64String(base64_data);
+        return LBMIMEDataFromBase64(base64_data);
+    }
+    else if ([cte isEqualToString:@"quoted-printable"]) {
+        return LBMIMEDataFromQuotedPrintable(content);
     }
     else {
         return nil;
@@ -146,63 +96,65 @@
 }
 
 - (BOOL)isMultipart {
-    return [[self.contentType lowercaseString] hasPrefix:@"multipart/"];
+    return [[[self contentType] lowercaseString] hasPrefix:@"multipart/"];
 }
 
-- (NSArray*) types {
-    NSMutableArray *types = [NSMutableArray array];
-    for (LBMIMEMessage *part in self.subparts) {
-        if (part.contentType) {
-            [types addObject: part.contentType];
-        }
-    }
-    
-    return types;
+- (NSString*)multipartBoundary {
+    return [self contentTypeAttribute:@"boundary"];
 }
 
-- (NSString *)availableTypeFromArray:(NSArray *)types {
-    NSArray *availableTypes = [self types];
-    for (NSString *type in types) {
-        if ([availableTypes containsObject: type]) {
-            return type;
-        }
-    }
+- (NSString*)contentTypeAttribute:(NSString*)attribName {
+    // TODO: this function needs a battery of unit tests
+    NSString *attribString = nil;
+    NSArray *components = [[self contentType] componentsSeparatedByString:@";"];
+    NSString *attribAssignment = [NSString stringWithFormat:@"%@=", attribName];
     
-    return nil;
-}
-
-- (LBMIMEMessage*)availablePartForTypeFromArray:(NSArray*)types {
-    
-    for (NSString *type in types) {
-        LBMIMEMessage *part = [self partForType:type];
-        if (part) {
-            return part;
-        }
-    }
-    
-    return nil;
-}
-
-- (LBMIMEMessage*)partForType:(NSString*)mimeType {
-    
-    if ([self.contentType hasPrefix:mimeType]) {
-        return self;
-    }
-    
-    if ([self isMultipart]) {
-        for (LBMIMEMessage *part in self.subparts) {
-            if ([part.contentType hasPrefix:mimeType]) {
-                return part;
+    for (NSString *component in components) {
+        if ([[[component lowercaseString] trim] hasPrefix:attribAssignment]) {
+            attribString = [component substringFromIndex:NSMaxRange([component rangeOfString:attribAssignment])];
+            
+            if ([attribString hasPrefix:@"\""] && [attribString hasSuffix:@"\""]) {
+                attribString = [attribString substringWithRange:NSMakeRange(1, [attribString length] - 2)]; // remove the "s on either end
             }
+            
+            return [attribString trim];
         }
     }
     
     return nil;
-}
-
-// the MIME spec says the alternative parts are ordered from least faithful to the most faithful. we can only presume the sender has done that correctly. consider this a guess rather than being definitive.
-- (NSString*)mostFailthfulAlternativeType {
-    return [[self.subparts lastObject] contentType];
 }
 
 @end
+
+NSData* LBMIMEDataFromQuotedPrintable(NSString* value) {
+    // TODO: this function needs a battery of unit tests
+    NSStringEncoding enc = NSISOLatin1StringEncoding;
+    value = [value stringByReplacingOccurrencesOfString:@"=\n" withString:@""];
+    value = [value stringByReplacingOccurrencesOfString:@"=" withString:@"%"];
+    value = [value stringByReplacingPercentEscapesUsingEncoding:enc];
+    return [value dataUsingEncoding:enc];
+}
+
+NSData *LBMIMEDataFromBase64(NSString *encodedString)
+{
+    if ( ! [encodedString hasSuffix:@"\n"] ){
+        encodedString = [encodedString stringByAppendingString:@"\n"];
+    }
+    NSData *encodedData = [encodedString dataUsingEncoding:NSASCIIStringEncoding];
+    NSMutableData *decodedData = [NSMutableData data];
+    
+    char buf[512];
+    uint bufLength;
+    
+    BIO *b64coder = BIO_new(BIO_f_base64());
+    BIO *b64buffer = BIO_new_mem_buf((void *)[encodedData bytes], [encodedData length]);
+    
+    b64buffer = BIO_push(b64coder, b64buffer);
+    
+    while ( (bufLength = BIO_read(b64buffer, buf, 512)) > 0 ) {
+        [decodedData appendBytes:buf length:bufLength];
+    }
+    BIO_free_all(b64buffer);
+    
+    return [[[NSData alloc] initWithData:decodedData] autorelease];
+}
