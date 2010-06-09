@@ -17,7 +17,7 @@
 
 @implementation LAAddressEntryTokenSource
 
-+ (LAAddressEntryToken*)entryTokenFromEditingString:(NSString*)string{
++ (LAAddressEntryToken*)entryTokenFromEditingString:(NSString*)string {
 	if([string rangeOfString:@"<"].location != NSNotFound && [string rangeOfString:@">"].location != NSNotFound){
 		return [self handleBracketVersion:string];
 	}
@@ -27,7 +27,7 @@
 	return nil;
 }
 
-+ (LAAddressEntryToken*)handleParenthesisVersion:(NSString*)string{
++ (LAAddressEntryToken*)handleParenthesisVersion:(NSString*)string {
 	NSRange aRange = [string rangeOfString:@"("];
 	NSString *email = [string substringToIndex:aRange.location];
 	
@@ -36,25 +36,28 @@
 	NSArray *names = [name componentsSeparatedByString:@" "];
 	NSString *firstName = [names objectAtIndex:0];
 	NSString *lastName = nil;
-	if([names count] > 1)
+	if([names count] > 1){
 		lastName = [names objectAtIndex:1];
+	}
 	
 	LAAddressEntryToken *token = [[LAAddressEntryToken alloc] init];
 	token.email = email;
 	token.firstName = firstName;
-	if(!!lastName)
+	if(lastName){
 		token.lastName = lastName;
-	return token;
+	}
+	return [token autorelease];
 }
 	
-+ (LAAddressEntryToken*)handleBracketVersion:(NSString*)string{	
++ (LAAddressEntryToken*)handleBracketVersion:(NSString*)string {	
 	NSRange aRange = [string rangeOfString:@"<"];
 	NSString *name = [string substringToIndex:aRange.location];
 	NSArray *names = [name componentsSeparatedByString:@" "];
 	NSString *firstName = [names objectAtIndex:0];
 	NSString *lastName = nil;
-	if([names count] > 1)
+	if([names count] > 1){
 		lastName = [names objectAtIndex:1];
+	}
 	
 	NSCharacterSet *bracketSet = [NSCharacterSet characterSetWithCharactersInString:@"<>"];
 	NSString *email = [[string substringFromIndex:aRange.location] stringByTrimmingCharactersInSet:bracketSet];
@@ -62,32 +65,35 @@
 	LAAddressEntryToken *token = [[LAAddressEntryToken alloc] init];
 	token.email = email;
 	token.firstName = firstName;
-	if(!!lastName)
+	if(lastName){
 		token.lastName = lastName;
-	return token;
+	}
+	return [token autorelease];
 }
 
 
-- (NSString *)tokenField:(NSTokenField *)tokenField displayStringForRepresentedObject:(id)representedObject{
-	if([representedObject respondsToSelector:@selector(firstName)])
+- (NSString *)tokenField:(NSTokenField *)tokenField displayStringForRepresentedObject:(id)representedObject {
+	if([representedObject respondsToSelector:@selector(firstName)]){
 		return [NSString stringWithFormat:@"%@ %@", [representedObject valueForKey:@"firstName"], [representedObject valueForKey:@"lastName"]];
+	}
 	return representedObject;
 }
 
-- (NSTokenStyle)tokenField:(NSTokenField *)tokenField styleForRepresentedObject:(id)representedObject{
-	if([representedObject respondsToSelector:@selector(editingString)])
+- (NSTokenStyle)tokenField:(NSTokenField *)tokenField styleForRepresentedObject:(id)representedObject {
+	if([representedObject respondsToSelector:@selector(editingString)]){
 		return NSRoundedTokenStyle;
+	}
 	return NSPlainTextTokenStyle;
 }
 
-- (NSArray *)tokenField:(NSTokenField *)tokenField completionsForSubstring:(NSString *)substring indexOfToken:(NSInteger)tokenIndex indexOfSelectedItem:(NSInteger *)selectedIndex{
+- (NSArray *)tokenField:(NSTokenField *)tokenField completionsForSubstring:(NSString *)substring indexOfToken:(NSInteger)tokenIndex indexOfSelectedItem:(NSInteger *)selectedIndex {
 	ABAddressBook *book = [ABAddressBook sharedAddressBook];
 	ABSearchElement *search = [ABPerson searchElementForProperty:kABFirstNameProperty label:nil key:nil value:substring comparison:kABPrefixMatchCaseInsensitive];
 	NSArray *firstNameEntries = [book recordsMatchingSearchElement:search];
 	NSArray *results = [self tokenArrayFromPeople:firstNameEntries withMatchField:LAAddressEntryFirstName];
 	
 	search = [ABPerson searchElementForProperty:kABLastNameProperty label:nil key:nil value:substring comparison:kABPrefixMatchCaseInsensitive];
-	NSMutableArray *lastNameEntries  = [[book recordsMatchingSearchElement:search] mutableCopy];
+	NSMutableArray *lastNameEntries  = [[[book recordsMatchingSearchElement:search] mutableCopy] autorelease];
 	[lastNameEntries removeObjectsInArray:firstNameEntries];
 	results = [results arrayByAddingObjectsFromArray:[self tokenArrayFromPeople:lastNameEntries withMatchField:LAAddressEntryLastName]];
 	
@@ -100,21 +106,22 @@
 	return results;
 }
 
-- (NSString *)tokenField:(NSTokenField *)tokenField editingStringForRepresentedObject:(id)representedObject{
-	if([representedObject respondsToSelector:@selector(editingString)])
+- (NSString *)tokenField:(NSTokenField *)tokenField editingStringForRepresentedObject:(id)representedObject {
+	if([representedObject respondsToSelector:@selector(editingString)]){
 		return [(LAAddressEntryToken*)representedObject editingString];
+	}
 	return representedObject;
 }
 
-- (id)tokenField:(NSTokenField *)tokenField representedObjectForEditingString:(NSString *)editingString{
+- (id)tokenField:(NSTokenField *)tokenField representedObjectForEditingString:(NSString *)editingString {
 	return [LAAddressEntryTokenSource entryTokenFromEditingString:editingString];
 }
 
-- (NSArray *)tokenField:(NSTokenField *)tokenField shouldAddObjects:(NSArray *)tokens atIndex:(NSUInteger)index{
+- (NSArray *)tokenField:(NSTokenField *)tokenField shouldAddObjects:(NSArray *)tokens atIndex:(NSUInteger)index {
 	return tokens;
 }
 
-- (NSArray *)tokenArrayFromPeople:(NSArray*)people withMatchField:(LAAddressEntryMatchField)field{
+- (NSArray *)tokenArrayFromPeople:(NSArray*)people withMatchField:(LAAddressEntryMatchField)field {
 	NSMutableArray *result = [NSMutableArray arrayWithCapacity:[people count]];
 	LAAddressEntryToken *token = [[LAAddressEntryToken alloc] init];
 	[people enumerateObjectsWithOptions:NSEnumerationConcurrent usingBlock:^(id obj, NSUInteger idx, BOOL *stop){
@@ -124,7 +131,7 @@
 								
 		for(NSUInteger i = 0; i < [values count];i++){
 			NSString *email = [values valueAtIndex:i];
-			if(!!email){
+			if(email){
 				token.email = email;
 				token.firstName = firstName;
 				token.lastName = lastName;
@@ -134,6 +141,7 @@
 		}
 		return;
 	}];
+	[token release];
 	return result;
 }
 @end

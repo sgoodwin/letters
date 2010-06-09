@@ -12,7 +12,7 @@
 @implementation LAAddressBookViewController
 @synthesize peoplePicker, accessoryView, delegate;
 
-+ (LAAddressBookViewController*)newAddressBookViewControllerWithDelegate:(id<LAAddressBookViewDelegate, NSObject>)aDelegate{
++ (LAAddressBookViewController*)newAddressBookViewControllerWithDelegate:(id<LAAddressBookViewDelegate, NSObject>)aDelegate {
     
     LAAddressBookViewController *addressbookVC = [[LAAddressBookViewController alloc] initWithWindowNibName:@"LAAddressBookView"];
 	addressbookVC.delegate = aDelegate;
@@ -20,18 +20,18 @@
     return [addressbookVC autorelease];
 }
 
-- (void)awakeFromNib{
+- (void)awakeFromNib {
 	[self.peoplePicker setAccessoryView:self.accessoryView];
 	self.peoplePicker.target = self;
 	[self.peoplePicker setNameDoubleAction:@selector(to:)];
 }
 
-- (LAAddressEntryToken *)selectedEntry{
+- (LAAddressEntryToken *)selectedEntry {
 	NSString *email = nil;
 	ABPerson *person = nil;
 	
 	NSArray *values = [self.peoplePicker selectedValues];
-	if(!!values && [values count] > 0){
+	if([values count]){
 		email =  [values objectAtIndex:0];
 	}
 	if(!email){
@@ -41,7 +41,7 @@
 	values = nil;
 	
 	values = [self.peoplePicker selectedRecords];
-	if(!!values && [values count] > 0){
+	if(values && [values count] > 0){
 		person = [values objectAtIndex:0];
 	}
 	
@@ -50,30 +50,33 @@
 	entry.lastName = [person valueForProperty:kABLastNameProperty];
 	entry.email = email;
 	
-	return entry;
+	return [entry autorelease];
 }
 
-- (IBAction)to:(id)sender{
-	if(!!self.delegate && [self.delegate respondsToSelector:@selector(addToAddress:)]){
+- (IBAction)to:(id)sender {
+	if(self.delegate && [self.delegate respondsToSelector:@selector(addToAddress:)]){
 		LAAddressEntryToken *token = [self selectedEntry];
-		if(!!token)
+		if(token){
 			[self.delegate addToAddress:token];
+		}
 	}
 }
 
-- (IBAction)cc:(id)sender{
-	if(!!self.delegate && [self.delegate respondsToSelector:@selector(addToAddress:)]){
+- (IBAction)cc:(id)sender {
+	if(self.delegate && [self.delegate respondsToSelector:@selector(addToAddress:)]){
 		LAAddressEntryToken *token = [self selectedEntry];
-		if(!!token)
+		if(token){
 			[self.delegate addCcAddress:token];
+		}
 	}
 }
 
-- (IBAction)bcc:(id)sender{
-	if(!!self.delegate && [self.delegate respondsToSelector:@selector(addToAddress:)]){
+- (IBAction)bcc:(id)sender {
+	if(self.delegate && [self.delegate respondsToSelector:@selector(addToAddress:)]){
 		LAAddressEntryToken *token = [self selectedEntry];
-		if(!!token)
+		if(token){
 			[self.delegate addBccAddress:token];
+		}
 	}
 }
 

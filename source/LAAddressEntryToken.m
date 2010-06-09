@@ -11,7 +11,7 @@
 @implementation LAAddressEntryToken
 @synthesize firstName, lastName, email, matchField;
 
-- (NSString*)editingString{
+- (NSString*)editingString {
 	// Returns it's editing string for a NSTokenField based on it's match. If no matchField has been specified, it
 	// should default to a "John Doe <john.doe@me.com>" type string.
 	switch(self.matchField){
